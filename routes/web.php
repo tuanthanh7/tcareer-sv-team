@@ -15,5 +15,6 @@
 
 $router->get('/', function () use ($router) {
     // return $router->app->version();
-    return $router->app->version() . " - OK - API-SERVICE - ON DEVICE: " . get_device() . " - PHP VERSION: " . phpversion();
+    // return $router->app->version() . " - OK - API-SERVICE - ON DEVICE: " . get_device() . " - PHP VERSION: " . phpversion();
+    return $router->app->version() . " - PHP VERSION: " . phpversion();
 });
