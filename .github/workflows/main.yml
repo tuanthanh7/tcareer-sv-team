@@ -2,7 +2,7 @@ name: 🚀Deploy Laravel Project on push
 on:
   push:
     branches:
-      - master
+      - main
 jobs:
   web-deploy:
     name: Deploy
