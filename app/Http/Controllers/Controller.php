@@ -6,5 +6,5 @@ use Laravel\Lumen\Routing\Controller as BaseController;
 
 class Controller extends BaseController
 {
-    //test 2
+    //test 3
 }
