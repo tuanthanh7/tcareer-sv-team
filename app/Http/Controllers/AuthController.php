@@ -28,7 +28,9 @@ class AuthController extends Controller
      */
     public function login()
     {
-
+        // $user = auth()->user();
+        // dd($user);
+        
         $credentials = request(['phone', 'password']);
         // dd(password_hash("123", PASSWORD_BCRYPT));
         if (!$token = auth()->attempt($credentials)) {
@@ -67,6 +69,8 @@ class AuthController extends Controller
      */
     public function refresh()
     {
+        // Token cũ sẽ vào blacklisted
+        // Làm mới cái token truyền vào
         return $this->respondWithToken(auth()->refresh());
     }
 
