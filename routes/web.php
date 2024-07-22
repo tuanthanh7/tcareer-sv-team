@@ -18,3 +18,13 @@ $router->get('/', function () use ($router) {
     // return $router->app->version() . " - OK - API-SERVICE - ON DEVICE: " . get_device() . " - PHP VERSION: " . phpversion();
     return $router->app->version() . " - PHP VERSION: " . phpversion();
 });
+
+// $router->group(['middleware' => 'api', 'prefix' => 'auth'], function ($router) {
+$router->group(['prefix' => 'auth'], function ($router) {
+
+    $router->post('login', 'AuthController@login');
+    $router->post('logout', 'AuthController@logout');
+    $router->post('refresh', 'AuthController@refresh');
+    $router->post('me', 'AuthController@me');
+
+});
