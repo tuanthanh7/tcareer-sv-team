@@ -60,6 +60,9 @@ $app->singleton(
 */
 
 $app->configure('app');
+$app->configure('validation');
+$app->configure('messages');
+$app->configure('jwt');
 
 /*
 |--------------------------------------------------------------------------
@@ -80,7 +83,6 @@ $app->routeMiddleware([
     'auth' => App\Http\Middleware\Authenticate::class,
 ]);
 
-$app->configure('jwt');
 
 /*
 |--------------------------------------------------------------------------
