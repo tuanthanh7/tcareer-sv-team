@@ -101,9 +101,7 @@ return [
     |
     */
 
-    // 'ttl' => env('JWT_TTL', 60),
-    'ttl' => env('JWT_TTL', 10), //30 phút
-    // 'ttl' => env('JWT_TTL', 3600), // 1 tieng
+    'ttl' => env('JWT_TTL', 30), // 30 phút
 
     /*
     |--------------------------------------------------------------------------
@@ -122,9 +120,7 @@ return [
     |
     */
 
-    // 'refresh_ttl' => env('JWT_REFRESH_TTL', 20160),
-    'refresh_ttl' => env('JWT_REFRESH_TTL', 120),
-    // 'refresh_ttl' => env('JWT_REFRESH_TTL', 2592000), // 30 ngay
+    'refresh_ttl' => env('JWT_REFRESH_TTL', 43200), //30 ngay
 
     /*
     |--------------------------------------------------------------------------

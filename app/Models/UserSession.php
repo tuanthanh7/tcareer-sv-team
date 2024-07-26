@@ -7,7 +7,8 @@ namespace App\Models;
  *
  * @package App
  */
-class UserSession extends BaseModel {
+// class UserSession extends BaseModel {
+class UserSession {
     /**
      * The table associated with the model.
      *

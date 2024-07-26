@@ -6,11 +6,13 @@ use App\Http\Validators\CMSLoginValidator;
 use App\Models\User;
 use App\Models\UserSession;
 use App\Supports\Message;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Tymon\JWTAuth\Exceptions\JWTException;
 use Tymon\JWTAuth\Facades\JWTAuth as FacadesJWTAuth;
-
+use Tymon\JWTAuth\JWTAuth;
 
 class AuthController extends BaseController
 {
@@ -26,7 +28,7 @@ class AuthController extends BaseController
 
     public function __construct(FacadesJWTAuth $jwt)
     {
-        // $this->middleware('auth:api', ['except' => ['login']]);
+        $this->middleware('auth:api', ['except' => ['login','refresh']]);
         $this->jwt = $jwt;
         self::$_user_type_user   = "USER";
         self::$_user_expired_day = 365;
@@ -66,6 +68,10 @@ class AuthController extends BaseController
             if ($user->is_active == "0") {
                 return $this->responseError(Message::get("users.user-inactive"), 401);
             }
+
+            // Create refresh token
+            $refreshToken = $this->createRefreshToken();
+
             // Write User Session
             $now = time();
             UserSession::where('user_id', $user->id)->update([
@@ -78,7 +84,7 @@ class AuthController extends BaseController
             $device_type = array_get($input, 'device_type', 'UNKNOWN');
             UserSession::insert([
                 'user_id'     =>Auth::id(),
-                'token'       => $token,
+                'token'       => $refreshToken,
                 'login_at'    => date("Y-m-d H:i:s", $now),
                 'expired_at'  => date("Y-m-d H:i:s", ($now + config('jwt.ttl') * 60)),
                 'device_type' => $device_type,
@@ -87,9 +93,11 @@ class AuthController extends BaseController
                 'created_at'  => date("Y-m-d H:i:s", $now),
                 'created_by'  => Auth::id(),
             ]);
-            DB::commit();
 
-            return $this->respondWithToken($token);
+            DB::commit();
+            return $this->respondWithToken($token,$refreshToken);
+            // return response()->json(compact('token','refreshToken'));
+            // return $this->respondWithToken($token);
 
         } catch (\Throwable $th) {
             DB::rollBack();
@@ -105,7 +113,7 @@ class AuthController extends BaseController
      */
     public function me()
     {
-        return response()->json(auth()->user());
+        return response()->json(auth('api')->user());
     }
 
     /**
@@ -127,9 +135,66 @@ class AuthController extends BaseController
      */
     public function refresh()
     {
+        
         // Token cũ sẽ vào blacklisted
         // Làm mới cái token truyền vào
-        return $this->respondWithToken(auth()->refresh());
+        // return $this->respondWithToken(auth()->refresh());
+        $input = request()->all();
+        $refreshToken = request()->refresh_token;
+        try {
+            $refreshTokenCheck = UserSession::where('token',$refreshToken)->first();
+            if(empty($refreshTokenCheck)){
+                return $this->responseError(Message::get("session.invalid"));
+            };
+            $now = time();
+
+            // R-Token het han
+            if ($refreshTokenCheck->expired_at < $now) {
+                return $this->responseError(Message::get("session.expired"));
+            }
+            $decoded = FacadesJWTAuth::getJWTProvider()->decode($refreshToken);
+
+            // ----
+            // -----------------------------
+            $user = User::find($decoded['user_id']);
+            if (!$user) {
+                return $this->responseError("Khong tim thay user");
+            }
+
+            // Vo hieu hoa token cũ
+            if(!is_null(auth('api')->user())){ // Token chua het han
+                auth()->invalidate(true);
+            }
+            $token = auth('api')->login($user);
+            // -----------------------------
+            // // Create refresh token
+            // $refreshToken = $this->createRefreshToken();
+
+            // // Write User Session
+            // UserSession::where('user_id', $user->id)->update([
+            //     'deleted'    => 1,
+            //     'updated_at' => date("Y-m-d H:i:s", $now),
+            //     'updated_by' => Auth::id(),
+            // ]);
+            // UserSession::where('user_id', $user->id)->delete();
+
+            // $device_type = array_get($input, 'device_type', 'UNKNOWN');
+            // UserSession::insert([
+            //     'user_id'     =>Auth::id(),
+            //     'token'       => $refreshToken,
+            //     'login_at'    => date("Y-m-d H:i:s", $now),
+            //     'expired_at'  => date("Y-m-d H:i:s", ($now + config('jwt.ttl') * 60)),
+            //     'device_type' => $device_type,
+            //     'device_id'   => array_get($input, 'device_id'),
+            //     'deleted'     => 0,
+            //     'created_at'  => date("Y-m-d H:i:s", $now),
+            //     'created_by'  => Auth::id(),
+            // ]);
+            $refreshToken=null;
+            return $this->respondWithToken($token,$refreshToken);
+        } catch (JWTException $th) {
+            return $this->responseError($th->getMessage());
+        }
     }
 
     /**
@@ -139,12 +204,24 @@ class AuthController extends BaseController
      *
      * @return \Illuminate\Http\JsonResponse
      */
-    protected function respondWithToken($token)
+    protected function respondWithToken($token, $refreshToken)
     {
         return response()->json([
             'access_token' => $token,
+            'refresh_token' => $refreshToken,
             'token_type' => 'bearer',
             'expires_in' => auth()->factory()->getTTL() * 60
         ]);
+    }
+
+    private function createRefreshToken(){
+        $data = [
+            'user_id'=>auth('api')->user()->id,
+            'random' => rand().time(),
+            'exp' => time() + config('jwt.refresh_ttl')
+        ];
+
+        $refreshToken = FacadesJWTAuth::getJWTProvider()->encode($data);
+        return $refreshToken;
     }
 }

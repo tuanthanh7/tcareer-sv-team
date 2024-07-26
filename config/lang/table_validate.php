@@ -108,5 +108,14 @@ $table_validate = [
     "permission.delete-success" => [
         "EN" => "[{0}] has deleted",
         "VI" => "Bạn vừa xóa [{0}] thành công",
+    ],
+    # User Session
+    "session.invalid"           => [
+        "EN" => "Invalid refresh token",
+        "VI" => "Refresh token không hợp lệ",
+    ],
+    "session.expired"           => [
+        "EN" => "Refresh token has expired",
+        "VI" => "Refresh token đã hết hạn",
     ]
 ];
