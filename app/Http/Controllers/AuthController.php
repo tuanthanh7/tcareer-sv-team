@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Validators\CMSLoginValidator;
+use App\Http\Validators\RegisterValidator;
 use App\Models\User;
 use App\Models\UserSession;
 use App\Supports\Message;
@@ -10,9 +11,13 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Laravel\Socialite\Facades\Socialite;
 use Tymon\JWTAuth\Exceptions\JWTException;
 use Tymon\JWTAuth\Facades\JWTAuth as FacadesJWTAuth;
 use Tymon\JWTAuth\JWTAuth;
+use App\Providers\RouteServiceProvider;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Arr;
 
 class AuthController extends BaseController
 {
@@ -28,7 +33,7 @@ class AuthController extends BaseController
 
     public function __construct(FacadesJWTAuth $jwt)
     {
-        $this->middleware('auth:api', ['except' => ['login','refresh']]);
+        // $this->middleware('auth:api', ['except' => ['login','refresh','redirectToGoogle']]);
         $this->jwt = $jwt;
         self::$_user_type_user   = "USER";
         self::$_user_expired_day = 365;
@@ -104,6 +109,82 @@ class AuthController extends BaseController
             return response()->json(['errors' => [[$th->getMessage()]]], 500);
 
         }
+    }
+
+    public function register(Request $request)
+    {
+        $input                = $request->all();
+        (new RegisterValidator)->validate($input);
+
+        try {
+            DB::beginTransaction();
+            $phone = str_replace(" ", "", $input['phone']);
+            $phone = preg_replace('/\D/', '', $phone);
+            $names = explode(" ", trim($input['name']));
+            $first = $names[0];
+            unset($names[0]);
+            $last        = !empty($names) ? implode(" ", $names) : null;
+            $email       = Arr::get($input, 'email', null);
+            $verify_code = mt_rand(100000, 999999);
+            $param       = [
+                'phone'        => $phone,
+                'code'         => $phone,
+                'username'     => $phone,
+                'first_name'   => $first,
+                'last_name'    => $last,
+                'short_name'   => $input['name'],
+                'full_name'    => $input['name'],
+                'email'        => $email,
+                'verify_code'  => $verify_code,
+                'role_id'      => 2,
+                'expired_code' => date('Y-m-d H:i:s', strtotime("+5 minutes")),
+                'password'     => password_hash($input['password'], PASSWORD_BCRYPT),
+                'genre'        => array_get($input, 'genre', 'O'),
+                'address'      => array_get($input, 'address', null),
+                'is_active'    => 1,
+            ];
+            // Create User
+            $user = $this->model->create($param);
+            // Send Mail
+            // if ($email) {
+            //     $this->dispatch(new SendMailRegister($email, [
+            //         'name'        => $input['name'],
+            //         'phone'       => $input['phone'],
+            //         'email'       => $input['email'],
+            //         'verify_code' => $verify_code,
+            //     ]));
+            // }
+            DB::commit();
+            return response()->json(['status' => Message::get("users.register-success", $user->phone)], 200);
+        } catch (QueryException $ex) {
+            // $response = SERVICE_Error::handle($ex);
+            return response()->json(['errors' => [$ex->getMessage()]], 401);
+        } catch (\Exception $ex) {
+            // $response = SERVICE_Error::handle($ex);
+            return response()->json(['errors' => [$ex->getMessage()]], 401);
+        }
+    }
+
+    // Login Google
+    public function redirectToGoogle()
+    {
+        // return Socialite::driver($provider)->stateless()->redirect();
+        return Socialite::driver('google')->stateless()->redirect();
+    }
+
+    public function handleGoogleCallback()
+    {
+        $googleUser = Socialite::driver('google')->stateless()->user();
+        dd($googleUser);
+        $user = User::where('email', $googleUser->email)->first();
+        if(!$user)
+        {
+            $user = User::create(['name' => $googleUser->name, 'email' => $googleUser->email, 'password' => \Hash::make(rand(100000,999999))]);
+        }
+
+        $token = Auth::login($user);
+        return $token;
+        // return redirect(RouteServiceProvider::HOME);
     }
 
     /**
